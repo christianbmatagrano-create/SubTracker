@@ -185,6 +185,7 @@ export default function Dashboard() {
                 sub={sub}
                 onEdit={() => setEditSub(sub)}
                 onDelete={() => handleDelete(sub.id)}
+onRefresh={fetchSubs}
               />
             ))}
           </div>
