@@ -9,22 +9,30 @@ import toast from 'react-hot-toast'
 
 interface Props {
   sub: Subscription
+  dark?: boolean
   onEdit: () => void
   onDelete: () => void
   onRefresh: () => void
 }
 
-export default function SubCard({ sub, onEdit, onDelete, onRefresh }: Props) {
+export default function SubCard({ sub, dark = true, onEdit, onDelete, onRefresh }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [markingPaid, setMarkingPaid] = useState(false)
   const days = daysUntil(sub.next_billing_date)
   const category = CATEGORIES.find(c => c.value === sub.category)
   const cycle = BILLING_CYCLES.find(c => c.value === sub.billing_cycle)
   const monthlyEquivalent = toMonthlyAmount(sub.amount, sub.billing_cycle)
-
   const isPaid = days > 7
 
   const urgencyClass =
+    days < 0  ? 'text-red-400 bg-red-900/30 border-red-700/50' :
+    days === 0 ? 'text-red-400 bg-red-900/30 border-red-700/50' :
+    days <= 1  ? 'text-red-400 bg-red-900/30 border-red-700/50' :
+    days <= 3  ? 'text-amber-400 bg-amber-900/30 border-amber-700/50' :
+    days <= 7  ? 'text-blue-400 bg-blue-900/30 border-blue-700/50' :
+    'text-green-400 bg-green-900/30 border-green-700/50'
+
+  const urgencyClassLight =
     days < 0  ? 'text-red-600 bg-red-50 border-red-200' :
     days === 0 ? 'text-red-600 bg-red-50 border-red-200' :
     days <= 1  ? 'text-red-600 bg-red-50 border-red-200' :
@@ -45,12 +53,10 @@ export default function SubCard({ sub, onEdit, onDelete, onRefresh }: Props) {
       const currentDate = parseISO(sub.next_billing_date)
       const nextDate = advanceBillingDate(currentDate, sub.billing_cycle)
       const nextDateStr = format(nextDate, 'yyyy-MM-dd')
-
       const { error } = await supabase
         .from('subscriptions')
         .update({ next_billing_date: nextDateStr })
         .eq('id', sub.id)
-
       if (error) throw error
       toast.success(`${sub.name} marked as paid — next bill ${format(nextDate, 'MMM d')}`)
       onRefresh()
@@ -61,37 +67,47 @@ export default function SubCard({ sub, onEdit, onDelete, onRefresh }: Props) {
     }
   }
 
+  const cardClass = dark
+    ? `rounded-2xl border p-4 flex items-center gap-4 transition-all bg-slate-900/60 border-slate-700/60 hover:border-slate-600/80 hover:bg-slate-800/60 ${isPaid ? 'opacity-50' : ''}`
+    : `rounded-2xl border p-4 flex items-center gap-4 transition-all bg-white border-gray-200 hover:shadow-md ${isPaid ? 'opacity-50' : ''}`
+
+  const nameClass = dark ? 'text-white' : 'text-gray-900'
+  const metaClass = dark ? 'text-slate-500' : 'text-gray-500'
+  const amountClass = dark ? 'text-white' : 'text-gray-900'
+  const iconBg = dark ? 'bg-slate-800' : 'bg-gray-100'
+  const btnClass = dark
+    ? 'p-2 rounded-lg transition-colors text-slate-500 hover:text-white hover:bg-slate-700'
+    : 'p-2 rounded-lg transition-colors text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+
   return (
-    <div className={`card p-4 flex items-center gap-4 hover:shadow-md transition-shadow ${isPaid ? 'opacity-60' : ''}`}>
-      <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl shrink-0">
+    <div className={cardClass}>
+      <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center text-xl shrink-0`}>
         {category?.emoji ?? '📦'}
       </div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className="font-semibold text-gray-900 text-sm">{sub.name}</span>
+          <span className={`font-semibold text-sm ${nameClass}`}>{sub.name}</span>
           {sub.notes && (
-            <span className="text-xs text-gray-400 truncate hidden sm:block">— {sub.notes}</span>
+            <span className={`text-xs truncate hidden sm:block ${metaClass}`}>— {sub.notes}</span>
           )}
         </div>
-        <div className="flex items-center gap-3 text-xs text-gray-500">
+        <div className={`flex items-center gap-3 text-xs ${metaClass}`}>
           <span>{cycle?.label ?? sub.billing_cycle}</span>
           <span>·</span>
           <span>{format(parseISO(sub.next_billing_date), 'MMM d, yyyy')}</span>
           {sub.billing_cycle !== 'monthly' && (
             <>
               <span>·</span>
-              <span className="text-gray-400">{formatCurrency(monthlyEquivalent)}/mo</span>
+              <span className={dark ? 'text-slate-600' : 'text-gray-400'}>{formatCurrency(monthlyEquivalent)}/mo</span>
             </>
           )}
         </div>
       </div>
 
       <div className="flex flex-col items-end gap-1 shrink-0">
-        <span className="font-bold text-gray-900">
-          {formatCurrency(sub.amount, sub.currency)}
-        </span>
-        <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${urgencyClass}`}>
+        <span className={`font-bold ${amountClass}`}>{formatCurrency(sub.amount, sub.currency)}</span>
+        <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${dark ? urgencyClass : urgencyClassLight}`}>
           {dueLabelText}
         </span>
       </div>
@@ -101,7 +117,7 @@ export default function SubCard({ sub, onEdit, onDelete, onRefresh }: Props) {
           <button
             onClick={handleMarkPaid}
             disabled={markingPaid}
-            className="p-2 rounded-lg hover:bg-green-50 text-gray-400 hover:text-green-600 transition-colors"
+            className={`p-2 rounded-lg transition-colors ${dark ? 'text-slate-500 hover:text-green-400 hover:bg-green-900/30' : 'text-gray-400 hover:text-green-600 hover:bg-green-50'}`}
             title="Mark as paid"
           >
             {markingPaid ? (
@@ -114,11 +130,7 @@ export default function SubCard({ sub, onEdit, onDelete, onRefresh }: Props) {
           </button>
         )}
 
-        <button
-          onClick={onEdit}
-          className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
-          title="Edit"
-        >
+        <button onClick={onEdit} className={btnClass} title="Edit">
           <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
             <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
           </svg>
@@ -126,23 +138,17 @@ export default function SubCard({ sub, onEdit, onDelete, onRefresh }: Props) {
 
         {confirmDelete ? (
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => onDelete()}
-              className="p-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 transition-colors text-xs font-medium"
-            >
+            <button onClick={() => onDelete()} className="p-2 rounded-lg bg-red-900/40 hover:bg-red-900/60 text-red-400 transition-colors text-xs font-medium">
               Remove
             </button>
-            <button
-              onClick={() => setConfirmDelete(false)}
-              className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors text-xs"
-            >
+            <button onClick={() => setConfirmDelete(false)} className={`p-2 rounded-lg text-xs transition-colors ${dark ? 'text-slate-400 hover:bg-slate-700' : 'text-gray-400 hover:bg-gray-100'}`}>
               Cancel
             </button>
           </div>
         ) : (
           <button
             onClick={() => setConfirmDelete(true)}
-            className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+            className={`p-2 rounded-lg transition-colors ${dark ? 'text-slate-500 hover:text-red-400 hover:bg-red-900/30' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'}`}
             title="Delete"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
